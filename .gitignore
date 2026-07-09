@@ -1,0 +1,16 @@
+# Rust
+/target
+Cargo.lock
+
+# Python
+__pycache__/
+*.pyc
+
+# IDEs & OS
+.vscode/
+.idea/
+.DS_Store
+
+# Gerados pelo Compilador
+*.asm
+!tests/*.asm # No futuro, se os testes possuírem ASM de baseline
