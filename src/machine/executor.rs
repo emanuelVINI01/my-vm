@@ -11,9 +11,15 @@ pub fn execute(
 ) {
     // Começa a execução pela label "main"
     let mut pc = *labels.get("main").expect("Erro: A label 'main:' é obrigatória e não foi encontrada!");
+    let mut cycle_count = 0;
 
     while pc < instructions.len() {
         let instruction = &instructions[pc];
+        
+        cycle_count += 1;
+        if cycle_count % 10_000 == 0 {
+            machine.poll_events();
+        }
         pc += 1; // Avança o PC para a próxima instrução
         
         match instruction.op_code {
@@ -204,9 +210,9 @@ pub fn execute(
                         for i in 0..length {
                             let ch_val = machine.read_ram(start_addr + i);
                             if let Some(c) = std::char::from_u32(ch_val) {
-                                print!("{}", c);
+                                machine.draw_char(c);
                             } else {
-                                print!("?");
+                                machine.draw_char('?');
                             }
                         }
                     }
@@ -273,11 +279,11 @@ pub fn execute(
                         Value::String(_) => panic!("String não pode ser usada no PRINTCHAR!"),
                     };
                     
-                    // Converte de u32 para char (ASCII/Unicode) e dá print sem pular linha
+                    // Converte de u32 para char (ASCII/Unicode) e desenha na VRAM
                     if let Some(c) = std::char::from_u32(number) {
-                        print!("{}", c);
+                        machine.draw_char(c);
                     } else {
-                        print!("?"); // Caractere inválido
+                        machine.draw_char('?');
                     }
                 }
             }
@@ -299,7 +305,30 @@ pub fn execute(
                 }
             }
             OpCode::HALT => {
-                break; // Para a execução da máquina
+                break;
+            }
+            OpCode::DRAWPIXEL => {
+                if let [x_val, y_val, c_val] = &instruction.values[..] {
+                    let x = match x_val {
+                        Value::Address(reg) => machine.get(reg) as usize,
+                        Value::Value(v) => *v as usize,
+                        _ => panic!("X invalido"),
+                    };
+                    let y = match y_val {
+                        Value::Address(reg) => machine.get(reg) as usize,
+                        Value::Value(v) => *v as usize,
+                        _ => panic!("Y invalido"),
+                    };
+                    let color = match c_val {
+                        Value::Address(reg) => machine.get(reg),
+                        Value::Value(v) => *v,
+                        _ => panic!("Cor invalida"),
+                    };
+                    machine.draw_pixel(x, y, color);
+                }
+            }
+            OpCode::UPDATEGUI => {
+                machine.update_gui();
             }
         }
     }

@@ -24,5 +24,7 @@ pub enum OpCode {
     GETLASTADDR,
     WRITE,
     ITOA,
+    DRAWPIXEL,
+    UPDATEGUI,
     HALT,
 }

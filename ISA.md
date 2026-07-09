@@ -45,3 +45,13 @@ As operações aritméticas armazenam o resultado de volta no Registrador de Des
 - `GETLASTADDR <RegDestino>`: Obtém o último endereço de RAM escrito e armazena no registrador.
 - `WRITE <FD> <RegInicio> <RegTamanho>`: Syscall de I/O. Escreve `Tamanho` bytes a partir da RAM no File Descriptor (geralmente `1` para STDOUT).
 - `ITOA <RegNumero> <RegDestino> <RegTamanho>`: Syscall para conversão Integer-to-ASCII em memória.
+
+## Interface Gráfica (GUI) - v1.1
+A VM possui uma VRAM interna de tamanho `1000x1000` (1 milhão de pixels). A janela gráfica é inicializada automaticamente em modo de Hardware, e a VM desenha nessa tela de forma síncrona.
+
+| OpCode       | Argumentos                     | Descrição                                                                                             |
+|--------------|--------------------------------|-------------------------------------------------------------------------------------------------------|
+| `DRAWPIXEL`  | `<X>, <Y>, <CorARGB>`         | Pinta o pixel nas coordenadas X e Y da VRAM com a Cor especificada.                                   |
+| `UPDATEGUI`  | Nenhum                         | Faz o *Swap Buffers* transferindo tudo o que foi pintado na VRAM diretamente para a Janela do OS.      |
+
+**Aviso Textual:** Os Opcodes `WRITE` e `PRINTCHAR` foram sobrescritos no nível da VM para converter os Caracteres ASCII em Bitmaps (usando `font8x8`) e renderizar as letras diretamente na interface gráfica, como um console de BIOS antigo.

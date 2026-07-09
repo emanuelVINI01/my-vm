@@ -77,6 +77,8 @@ pub fn parse(input: &str) -> (Vec<Instruction>, HashMap<String, usize>) {
             "GETLASTADDR" => OpCode::GETLASTADDR,
             "WRITE" => OpCode::WRITE,
             "ITOA" => OpCode::ITOA,
+            "DRAWPIXEL" => OpCode::DRAWPIXEL,
+            "UPDATEGUI" => OpCode::UPDATEGUI,
             "HALT" => OpCode::HALT,
             _ => panic!("Unknown opcode: {}", parts[0]),
         };
