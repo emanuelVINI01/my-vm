@@ -1,54 +1,79 @@
 # My VM & Compiler - v1.0
 
-Este projeto implementa uma **Máquina Virtual** de arquitetura de registradores e um **Compilador Python** (`vm-compiler`) construídos do zero para traduzir um subconjunto estrito de código Python em um bytecode/assembly próprio.
+This project implements a complete, scratch-built **Virtual Machine** with a register-based architecture and a **Python Compiler** (`vm-compiler`). It is designed to translate a strict subset of Python code into a custom bytecode/assembly language, which is then executed by the high-performance Virtual Machine engine.
 
-## Estrutura do Projeto
+## Overview
 
-- `/src`: O motor da Virtual Machine escrito em Rust.
-- `/vm-compiler`: O compilador (transpilador) escrito em Python, usando `ast`.
-- `/tests`: Exemplos de código testáveis e validáveis.
-- `ISA.md`: Documentação Oficial do Conjunto de Instruções.
-- `TODO.md`: Débitos Técnicos para a versão 2.
+This repository features two main components:
+1. **The Python Compiler**: A transpiler written in Python that parses Python source code using the native `ast` (Abstract Syntax Tree) module, compiles it, and generates custom assembly code (`.asm`). It includes an integrated linker to resolve multiple local modules.
+2. **The Virtual Machine**: A register-based runtime environment written in Rust. It reads the `.asm` output from the compiler, loads it into its simulated RAM (1024 words), and executes the instruction set.
 
-## Como Compilar e Rodar
+## Project Structure
 
-O fluxo de trabalho envolve dois passos: compilar o código fonte `.py` para um `.asm`, e instruir a VM em Rust a executar o `.asm`.
+- `/src`: The core Virtual Machine engine, written in Rust for safety and performance.
+- `/vm-compiler`: The compiler (transpiler) written in Python, responsible for AST parsing and assembly generation.
+- `/tests`: Examples of testable and validatable code showcasing the compiler's capabilities.
+- `ISA.md`: The official Instruction Set Architecture (ISA) documentation detailing the supported assembly instructions.
+- `TODO.md`: Technical debt, known issues, and roadmap for version 2.
+
+## How to Compile and Run
+
+The workflow consists of a two-step process: compiling your Python source code into an assembly file, and then running that assembly file through the Rust Virtual Machine.
+
+### Prerequisites
+- **Python 3.x** (for the compiler)
+- **Rust / Cargo** (for the VM)
+
+### Workflow
 
 ```bash
-# Passo 1: Compilar de Python para Assembly
+# Step 1: Compile from Python to Assembly
 python3 vm-compiler/main.py tests/test_loops.py target.asm
 
-# Passo 2: Executar na VM
+# Step 2: Execute the compiled Assembly on the VM
 cargo run -- target.asm
 ```
 
-## Escrevendo Programas
+## Writing Programs
 
-Sua sintaxe deve seguir um subconjunto limpo de Python, suportando `if`, `else`, `while`, `for i in range()` e operações aritméticas puras. 
-Você não tem acesso à Biblioteca Padrão do Python (`import math`, etc). Tudo deve ser escrito manualmente ou utilizando dependências resolvidas localmente pelo Linker integrado.
+When writing programs for this VM, your syntax must follow a clean, strict subset of Python. 
 
-### Exemplo de Programa (Múltiplos Módulos)
-**`matematica.py`**
+### Supported Features
+- Control flow: `if`, `else`, `while`, `for i in range()`
+- Pure arithmetic operations
+- Multi-file module importing (resolved locally by the Linker)
+
+### Restrictions
+- **No Standard Library**: You do not have access to the Python Standard Library (e.g., `import math`, `import sys`). Everything must be written manually or imported from local modules.
+- **Complex Types**: Lists, Classes, and Dictionaries are not natively supported by the compiler in v1.0.
+
+### Program Example (Multiple Modules)
+
+You can split your logic across multiple files. The linker will automatically resolve local dependencies.
+
+**`math_lib.py`**
 ```python
-def ao_quadrado(x):
+def squared(x):
     return x * x
 ```
+
 **`main.py`**
 ```python
 from myvm_lib import entry_point, print_str
-import matematica
+import math_lib
 
 @entry_point
 def main():
-    resultado = matematica.ao_quadrado(5)
-    print_str("O quadrado e:")
-    print_str(str(resultado))
+    result = math_lib.squared(5)
+    print_str("The square is:")
+    print_str(str(result))
 ```
+*Note: The `@entry_point` decorator specifies the starting function of your program.*
 
-## Limitações Atuais (v1.0)
-- Registradores limitados de `A` até `Z`.
-- Sem suporte nativo do compilador para Tipos Complexos (Listas, Classes, Dicionários).
-- Tratamento silencioso de módulos ausentes pelo Linker.
-- Tamanho total da RAM restrito a 1024 words.
+## Current Limitations (v1.0)
+- **Registers**: Limited to 26 general-purpose registers, named `A` through `Z`.
+- **Data Types**: No native compiler support for complex data types like Lists, Classes, or Dictionaries. Only primitive types (integers/strings) are currently handled.
+- **Error Handling**: Missing modules are treated silently by the Linker.
+- **Memory**: The total simulated RAM size is restricted to 1024 words.
 
-Para mais detalhes da arquitetura, consulte o documento `ISA.md`.
+For an in-depth look at the architecture and supported instructions, please consult the `ISA.md` document.
