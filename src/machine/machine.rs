@@ -2,13 +2,19 @@ use minifb::{Window, WindowOptions};
 
 pub struct Machine {
     pub registers: [u32; 26],
-    pub ram: [u32; 1024],
-    pub last_ram_address: u32, // Guarda o último endereço escrito
+    pub ram: Box<[u32]>,
+    pub last_ram_address: u32,
+    pub sp: usize,
     
     pub vram: Vec<u32>,
     pub window: Option<Window>,
     pub cursor_x: usize,
     pub cursor_y: usize,
+    
+    pub interrupts_enabled: bool,
+    pub pending_interrupts: Vec<usize>,
+    pub io_ports: [u32; 1024],
+    pub frame_count: usize,
 }
 
 impl Machine {
@@ -22,14 +28,23 @@ impl Machine {
         // Limita a ~60 FPS
         window.set_target_fps(60);
         
+        let mem_size = 256 * 1024 * 1024;
+        let mut regs = [0; 26];
+        regs[24] = (mem_size - 1) as u32; // Y = Base Pointer
+        
         Machine {
-            registers: [0; 26],
-            ram: [0; 1024],
-            last_ram_address: u32::MAX, // Iniciamos com -1 (MAX) pra que o próximo endereço some +1 e caia no 0.
+            registers: regs,
+            ram: vec![0; mem_size].into_boxed_slice(),
+            last_ram_address: u32::MAX,
+            sp: mem_size - 1,
             vram: vec![0; width * height],
             window: Some(window),
             cursor_x: 10,
             cursor_y: 10,
+            interrupts_enabled: false,
+            pending_interrupts: Vec::new(),
+            io_ports: [0; 1024],
+            frame_count: 0,
         }
     }
 
@@ -90,41 +105,89 @@ impl Machine {
     }
     
     pub fn update_gui(&mut self) {
+        self.frame_count += 1;
         if let Some(window) = &mut self.window {
-            window.update_with_buffer(&self.vram, 1000, 1000).unwrap();
+            // Draw hardware cursor
+            let mut vram_copy = vec![0; 1000 * 1000];
+            
+            use font8x8::UnicodeFonts;
+            
+            // Renderiza 80x25 caracteres da RAM (VGA Buffer = 0xB8000 = 753664)
+            for i in 0..(80 * 25) {
+                let addr = 0xB8000 + i;
+                let ch_val = self.ram[addr];
+                if ch_val != 0 && ch_val != 0x20 {
+                    if let Some(ch) = std::char::from_u32(ch_val & 0xFF) {
+                        if let Some(bitmap) = font8x8::BASIC_FONTS.get(ch) {
+                            let cx = (i % 80) * 8;
+                            let cy = (i / 80) * 16;
+                            for (r, row) in bitmap.iter().enumerate() {
+                                for c in 0..8 {
+                                    if (*row & 1 << c) != 0 {
+                                        let px = cx + c;
+                                        let py = cy + r;
+                                        if px < 1000 && py < 1000 {
+                                            vram_copy[py * 1000 + px] = 0xFFFFFFFF;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Lê posição do cursor (0..2000 para 80x25)
+            let cursor_pos = self.io_ports[0x3D5] as usize;
+            if cursor_pos < 80 * 25 {
+                let cursor_x = (cursor_pos % 80) * 8;
+                let cursor_y = (cursor_pos / 80) * 16;
+                
+                // Pisca a cada 30 frames (0.5s a 60FPS)
+                if (self.frame_count / 30) % 2 == 0 {
+                    for r in 14..16 { // desenha uma linha embaixo do caractere
+                        for c in 0..8 {
+                            let px = cursor_x + c;
+                            let py = cursor_y + r;
+                            if px < 1000 && py < 1000 {
+                                vram_copy[py * 1000 + px] = 0xFFFFFFFF;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            window.update_with_buffer(&vram_copy, 1000, 1000).unwrap();
         }
     }
     
     // Impede o SO de travar a janela
     pub fn poll_events(&mut self) {
-        if let Some(window) = &mut self.window {
-            window.update();
-        }
-    }
-    
-    // Desenha texto
-    pub fn draw_char(&mut self, c: char) {
-        if c == '\n' {
-            self.cursor_x = 10;
-            self.cursor_y += 10;
-            if self.cursor_y >= 990 { self.cursor_y = 10; }
-            return;
-        }
+        self.update_gui();
         
-        use font8x8::UnicodeFonts;
-        if let Some(bitmap) = font8x8::BASIC_FONTS.get(c) {
-            for (r, row) in bitmap.iter().enumerate() {
-                for col in 0..8 {
-                    if (*row & 1 << col) != 0 {
-                        self.draw_pixel(self.cursor_x + col, self.cursor_y + r, 0xFFFFFFFF);
-                    }
+        if let Some(window) = &mut self.window {
+            // Timer Tick (32)
+            if !self.pending_interrupts.contains(&32) {
+                self.pending_interrupts.push(32);
+            }
+            
+            let keys = window.get_keys_pressed(minifb::KeyRepeat::Yes);
+            for key in keys {
+                self.io_ports[0x60] = key as u32;
+                if !self.pending_interrupts.contains(&33) {
+                    self.pending_interrupts.push(33);
+                }
+            }
+            
+            let keys_released = window.get_keys_released();
+            for key in keys_released {
+                self.io_ports[0x60] = (key as u32) | 0x80;
+                if !self.pending_interrupts.contains(&33) {
+                    self.pending_interrupts.push(33);
                 }
             }
         }
-        self.cursor_x += 8;
-        if self.cursor_x >= 990 {
-            self.cursor_x = 10;
-            self.cursor_y += 10;
-        }
     }
+    
+
 }

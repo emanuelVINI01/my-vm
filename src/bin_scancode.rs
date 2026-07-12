@@ -1,0 +1,1 @@
+fn main() { println!("A: {}", minifb::Key::A as u32); println!("Z: {}", minifb::Key::Z as u32); println!("Space: {}", minifb::Key::Space as u32); println!("Enter: {}", minifb::Key::Enter as u32); println!("Backspace: {}", minifb::Key::Backspace as u32); println!("LeftShift: {}", minifb::Key::LeftShift as u32); println!("RightShift: {}", minifb::Key::RightShift as u32); }

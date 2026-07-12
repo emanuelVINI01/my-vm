@@ -6,3 +6,11 @@ edition = "2024"
 [dependencies]
 font8x8 = "0.3.1"
 minifb = "0.28.0"
+
+[dev-dependencies]
+minifb = "0.28.0"
+
+[[bin]]
+name = "bin_scancode"
+path = "src/bin_scancode.rs"
+
