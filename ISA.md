@@ -5,7 +5,7 @@ Este documento descreve a ISA da Virtual Machine customizada.
 ## Especificações de Hardware
 - **Registradores:** 26 registradores de Propósito Geral, endereçados pelas letras `A` a `Z`.
 - **Palavra da Máquina:** Todos os valores e registradores são baseados em Inteiros sem sinal de 32-bits (`u32`). Overflow matemático aciona wrap-around nativo.
-- **Memória RAM:** 1024 palavras de 32-bits (`[u32; 1024]`).
+- **Memória RAM:** 256 * 1024 * 1024 palavras de 32-bits (`ram: Box<[u32]>`, alocada dinamicamente em `machine.rs`, ~1 GiB).
 
 ## Regras de Sintaxe
 - O compilador encerra cada instrução com um ponto-e-vírgula (`;`).
@@ -47,7 +47,7 @@ As operações aritméticas armazenam o resultado de volta no Registrador de Des
 - `ITOA <RegNumero> <RegDestino> <RegTamanho>`: Syscall para conversão Integer-to-ASCII em memória.
 
 ## Interface Gráfica (GUI) - v1.1
-A VM possui uma VRAM interna de tamanho `1000x1000` (1 milhão de pixels). A janela gráfica é inicializada automaticamente em modo de Hardware, e a VM desenha nessa tela de forma síncrona.
+A VM possui uma VRAM interna de tamanho `1280x800` (`SCREEN_WIDTH`/`SCREEN_HEIGHT` em `machine.rs`), com suporte a mouse. A janela gráfica é inicializada automaticamente em modo de Hardware, e a VM desenha nessa tela de forma síncrona.
 
 | OpCode       | Argumentos                     | Descrição                                                                                             |
 |--------------|--------------------------------|-------------------------------------------------------------------------------------------------------|

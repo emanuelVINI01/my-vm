@@ -1,8 +1,16 @@
 use crate::instruction::Instruction;
 use crate::instruction::Value;
-use crate::machine::machine::Machine;
+use crate::machine::machine::{Machine, SCREEN_WIDTH, SCREEN_HEIGHT};
 use crate::opcodes::OpCode;
 use std::collections::HashMap;
+
+fn resolve_value(v: &Value, machine: &Machine) -> u32 {
+    match v {
+        Value::Address(reg) => machine.get(reg),
+        Value::Value(n) => *n,
+        Value::String(_) => panic!("String não pode ser usada como operando numérico"),
+    }
+}
 
 pub fn execute(
     instructions: Vec<Instruction>,
@@ -52,80 +60,80 @@ pub fn execute(
                 }
             }
             OpCode::ADD => {
-                if let [Value::Address(dest), Value::Address(src)] = &instruction.values[..] {
+                if let [Value::Address(dest), src] = &instruction.values[..] {
                     let val_dest = machine.get(dest);
-                    let val_src = machine.get(src);
+                    let val_src = resolve_value(src, machine);
                     machine.set(dest, val_dest.wrapping_add(val_src));
                 }
             }
             OpCode::SUB => {
-                if let [Value::Address(dest), Value::Address(src)] = &instruction.values[..] {
+                if let [Value::Address(dest), src] = &instruction.values[..] {
                     let val_dest = machine.get(dest);
-                    let val_src = machine.get(src);
+                    let val_src = resolve_value(src, machine);
                     let res = val_dest.wrapping_sub(val_src);
                     machine.set(dest, res);
                 }
             }
             OpCode::MUL => {
-                if let [Value::Address(dest), Value::Address(src)] = &instruction.values[..] {
+                if let [Value::Address(dest), src] = &instruction.values[..] {
                     let val_dest = machine.get(dest);
-                    let val_src = machine.get(src);
+                    let val_src = resolve_value(src, machine);
                     machine.set(dest, val_dest.wrapping_mul(val_src));
                 }
             }
             OpCode::DIV => {
-                if let [Value::Address(dest), Value::Address(src)] = &instruction.values[..] {
+                if let [Value::Address(dest), src] = &instruction.values[..] {
                     let val_dest = machine.get(dest);
-                    let val_src = machine.get(src);
+                    let val_src = resolve_value(src, machine);
                     machine.set(dest, val_dest / val_src);
                 }
             }
             OpCode::MOD => {
-                if let [Value::Address(dest), Value::Address(src)] = &instruction.values[..] {
+                if let [Value::Address(dest), src] = &instruction.values[..] {
                     let val_dest = machine.get(dest);
-                    let val_src = machine.get(src);
+                    let val_src = resolve_value(src, machine);
                     machine.set(dest, val_dest % val_src);
                 }
             }
             OpCode::POW => {
-                if let [Value::Address(dest), Value::Address(src)] = &instruction.values[..] {
+                if let [Value::Address(dest), src] = &instruction.values[..] {
                     let val_dest = machine.get(dest);
-                    let val_src = machine.get(src);
+                    let val_src = resolve_value(src, machine);
                     machine.set(dest, val_dest.wrapping_pow(val_src));
                 }
             }
             OpCode::XOR => {
-                if let [Value::Address(dest), Value::Address(src)] = &instruction.values[..] {
+                if let [Value::Address(dest), src] = &instruction.values[..] {
                     let val_dest = machine.get(dest);
-                    let val_src = machine.get(src);
+                    let val_src = resolve_value(src, machine);
                     machine.set(dest, val_dest ^ val_src);
                 }
             }
             OpCode::FADD => {
-                if let [Value::Address(dest), Value::Address(src)] = &instruction.values[..] {
+                if let [Value::Address(dest), src] = &instruction.values[..] {
                     let val_dest = f32::from_bits(machine.get(dest));
-                    let val_src = f32::from_bits(machine.get(src));
+                    let val_src = f32::from_bits(resolve_value(src, machine));
                     machine.set(dest, (val_dest + val_src).to_bits());
                 }
             }
             OpCode::FSUB => {
-                if let [Value::Address(dest), Value::Address(src)] = &instruction.values[..] {
+                if let [Value::Address(dest), src] = &instruction.values[..] {
                     let val_dest = f32::from_bits(machine.get(dest));
-                    let val_src = f32::from_bits(machine.get(src));
+                    let val_src = f32::from_bits(resolve_value(src, machine));
                     machine.set(dest, (val_dest - val_src).to_bits());
                 }
             }
             OpCode::FMUL => {
-                if let [Value::Address(dest), Value::Address(src)] = &instruction.values[..] {
+                if let [Value::Address(dest), src] = &instruction.values[..] {
                     let val_dest = f32::from_bits(machine.get(dest));
-                    let val_src = f32::from_bits(machine.get(src));
+                    let val_src = f32::from_bits(resolve_value(src, machine));
                     machine.set(dest, (val_dest * val_src).to_bits());
                 }
             }
             OpCode::FDIV => {
-                if let [Value::Address(dest), Value::Address(src)] = &instruction.values[..] {
+                if let [Value::Address(dest), src] = &instruction.values[..] {
                     let val_dest = f32::from_bits(machine.get(dest));
-                    let val_src = f32::from_bits(machine.get(src));
+                    let val_src = f32::from_bits(resolve_value(src, machine));
                     machine.set(dest, (val_dest / val_src).to_bits());
                 }
             }
@@ -532,6 +540,8 @@ pub fn execute(
             }
             OpCode::YIELD => {
                 pc -= 1;
+                // Exporta frame_count para porta 980 (usado pelo cursor do terminal)
+                machine.io_ports[980] = machine.frame_count as u32;
                 machine.poll_events();
             }
 
@@ -561,6 +571,212 @@ pub fn execute(
             OpCode::UPDATEGUI => {
                 machine.update_gui();
             }
+            
+            // === NOVOS OPCODES GUI AVANÇADOS ===
+            
+            OpCode::FILLRECT => {
+                // FILLRECT x y w h color
+                if let [xv, yv, wv, hv, cv] = &instruction.values[..] {
+                    let x = val_to_i32(xv, machine);
+                    let y = val_to_i32(yv, machine);
+                    let w = val_to_i32(wv, machine);
+                    let h = val_to_i32(hv, machine);
+                    let color = val_to_u32(cv, machine);
+                    machine.fill_rect(x, y, w, h, color);
+                }
+            }
+            
+            OpCode::DRAWRECT => {
+                // DRAWRECT x y w h color
+                if let [xv, yv, wv, hv, cv] = &instruction.values[..] {
+                    let x = val_to_i32(xv, machine);
+                    let y = val_to_i32(yv, machine);
+                    let w = val_to_i32(wv, machine);
+                    let h = val_to_i32(hv, machine);
+                    let color = val_to_u32(cv, machine);
+                    machine.draw_rect_border(x, y, w, h, color);
+                }
+            }
+            
+            OpCode::DRAWCHAR => {
+                // DRAWCHAR x y char fg bg
+                if let [xv, yv, chv, fgv, bgv] = &instruction.values[..] {
+                    let x = val_to_i32(xv, machine);
+                    let y = val_to_i32(yv, machine);
+                    let ch_code = val_to_u32(chv, machine);
+                    let fg = val_to_u32(fgv, machine);
+                    let bg = val_to_u32(bgv, machine);
+                    let ch = std::char::from_u32(ch_code).unwrap_or('?');
+                    machine.draw_char_pixel(x, y, ch, fg, bg);
+                }
+            }
+            
+            OpCode::BLITCHAR => {
+                // BLITCHAR x y char_code fg bg - alias for DRAWCHAR
+                if let [xv, yv, chv, fgv, bgv] = &instruction.values[..] {
+                    let x = val_to_i32(xv, machine);
+                    let y = val_to_i32(yv, machine);
+                    let ch_code = val_to_u32(chv, machine);
+                    let fg = val_to_u32(fgv, machine);
+                    let bg = val_to_u32(bgv, machine);
+                    let ch = std::char::from_u32(ch_code).unwrap_or('?');
+                    machine.draw_char_pixel(x, y, ch, fg, bg);
+                }
+            }
+            
+            OpCode::DRAWTEXT => {
+                // DRAWTEXT x y ram_addr len fg bg
+                if let [xv, yv, av, lv, fgv, bgv] = &instruction.values[..] {
+                    let x = val_to_i32(xv, machine);
+                    let y = val_to_i32(yv, machine);
+                    let addr = val_to_u32(av, machine);
+                    let len = val_to_u32(lv, machine);
+                    let fg = val_to_u32(fgv, machine);
+                    let bg = val_to_u32(bgv, machine);
+                    let mut cx = x;
+                    for i in 0..len {
+                        let ch_val = machine.read_ram(addr + i);
+                        let ch = std::char::from_u32(ch_val).unwrap_or('?');
+                        machine.draw_char_pixel(cx, y, ch, fg, bg);
+                        cx += 8;
+                    }
+                }
+            }
+            
+            OpCode::GETMOUSEX => {
+                if let [Value::Address(reg)] = &instruction.values[..] {
+                    let mx = machine.mouse_x as u32;
+                    machine.set(reg, mx);
+                }
+            }
+            
+            OpCode::GETMOUSEY => {
+                if let [Value::Address(reg)] = &instruction.values[..] {
+                    let my = machine.mouse_y as u32;
+                    machine.set(reg, my);
+                }
+            }
+            
+            OpCode::GETMOUSEBTN => {
+                if let [Value::Address(reg)] = &instruction.values[..] {
+                    machine.set(reg, machine.mouse_buttons);
+                }
+            }
+            
+            OpCode::CLEARSCREEN => {
+                // CLEARSCREEN color
+                if let [cv] = &instruction.values[..] {
+                    let color = val_to_u32(cv, machine);
+                    machine.fill_rect(0, 0, SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32, color);
+                }
+            }
+            
+            OpCode::DRAWLINE => {
+                // DRAWLINE x1 y1 x2 y2 color
+                if let [x1v, y1v, x2v, y2v, cv] = &instruction.values[..] {
+                    let x1 = val_to_i32(x1v, machine);
+                    let y1 = val_to_i32(y1v, machine);
+                    let x2 = val_to_i32(x2v, machine);
+                    let y2 = val_to_i32(y2v, machine);
+                    let color = val_to_u32(cv, machine);
+                    machine.draw_line(x1, y1, x2, y2, color);
+                }
+            }
+            
+            OpCode::FILLROUNDRECT => {
+                // FILLROUNDRECT x y w h radius color
+                if let [xv, yv, wv, hv, rv, cv] = &instruction.values[..] {
+                    let x = val_to_i32(xv, machine);
+                    let y = val_to_i32(yv, machine);
+                    let w = val_to_i32(wv, machine);
+                    let h = val_to_i32(hv, machine);
+                    let r = val_to_i32(rv, machine);
+                    let color = val_to_u32(cv, machine);
+                    machine.fill_round_rect(x, y, w, h, r, color);
+                }
+            }
+            
+            OpCode::COPYREGION => {
+                // COPYREGION src_x src_y dst_x dst_y w h - copia região
+                if let [sxv, syv, dxv, dyv, wv, hv] = &instruction.values[..] {
+                    let sx = val_to_i32(sxv, machine).max(0) as usize;
+                    let sy = val_to_i32(syv, machine).max(0) as usize;
+                    let dx = val_to_i32(dxv, machine).max(0) as usize;
+                    let dy = val_to_i32(dyv, machine).max(0) as usize;
+                    let w = val_to_i32(wv, machine).max(0) as usize;
+                    let h = val_to_i32(hv, machine).max(0) as usize;
+                    
+                    let mut buf = vec![0u32; w * h];
+                    for row in 0..h {
+                        for col in 0..w {
+                            let spx = (sy + row) * SCREEN_WIDTH + (sx + col);
+                            if spx < machine.vram.len() {
+                                buf[row * w + col] = machine.vram[spx];
+                            }
+                        }
+                    }
+                    for row in 0..h {
+                        for col in 0..w {
+                            let dpx = (dy + row) * SCREEN_WIDTH + (dx + col);
+                            if dpx < machine.vram.len() {
+                                machine.vram[dpx] = buf[row * w + col];
+                            }
+                        }
+                    }
+                }
+            }
+            
+            OpCode::GETSCREENW => {
+                if let [Value::Address(reg)] = &instruction.values[..] {
+                    machine.set(reg, SCREEN_WIDTH as u32);
+                }
+            }
+            
+            OpCode::GETSCREENH => {
+                if let [Value::Address(reg)] = &instruction.values[..] {
+                    machine.set(reg, SCREEN_HEIGHT as u32);
+                }
+            }
+            
+            OpCode::SETWINDOWTITLE => {
+                // SETWINDOWTITLE addr len  - lê string da RAM e muda título
+                if let [av, lv] = &instruction.values[..] {
+                    let addr = val_to_u32(av, machine);
+                    let len = val_to_u32(lv, machine);
+                    let mut title = String::new();
+                    for i in 0..len {
+                        let ch_val = machine.read_ram(addr + i);
+                        if let Some(c) = std::char::from_u32(ch_val) {
+                            title.push(c);
+                        }
+                    }
+                    if let Some(w) = &mut machine.window {
+                        w.set_title(&title);
+                    }
+                }
+            }
+
+            OpCode::LABELADDR => {
+                if let [Value::Address(dest_reg), Value::Address(label_name)] = &instruction.values[..] {
+                    match labels.get(label_name) {
+                        Some(&idx) => machine.set(dest_reg, idx as u32),
+                        None => panic!("LABELADDR: label '{}' não encontrada", label_name),
+                    }
+                }
+            }
         }
     }
+}
+
+// Helpers para converter Value -> tipos numéricos
+fn val_to_u32(v: &crate::instruction::Value, machine: &Machine) -> u32 {
+    match v {
+        crate::instruction::Value::Address(reg) => machine.get(reg),
+        crate::instruction::Value::Value(n) => *n,
+        crate::instruction::Value::String(_) => panic!("String não pode ser usado como número"),
+    }
+}
+
+fn val_to_i32(v: &crate::instruction::Value, machine: &Machine) -> i32 {
+    val_to_u32(v, machine) as i32
 }

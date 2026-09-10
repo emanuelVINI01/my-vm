@@ -99,6 +99,23 @@ pub fn parse(input: &str) -> (Vec<Instruction>, HashMap<String, usize>) {
             "YIELD" => OpCode::YIELD,
             "GETSP" => OpCode::GETSP,
             "SETSP" => OpCode::SETSP,
+            // Novos opcodes GUI
+            "FILLRECT" => OpCode::FILLRECT,
+            "DRAWRECT" => OpCode::DRAWRECT,
+            "DRAWCHAR" => OpCode::DRAWCHAR,
+            "DRAWTEXT" => OpCode::DRAWTEXT,
+            "GETMOUSEX" => OpCode::GETMOUSEX,
+            "GETMOUSEY" => OpCode::GETMOUSEY,
+            "GETMOUSEBTN" => OpCode::GETMOUSEBTN,
+            "CLEARSCREEN" => OpCode::CLEARSCREEN,
+            "COPYREGION" => OpCode::COPYREGION,
+            "DRAWLINE" => OpCode::DRAWLINE,
+            "FILLROUNDRECT" => OpCode::FILLROUNDRECT,
+            "BLITCHAR" => OpCode::BLITCHAR,
+            "GETSCREENW" => OpCode::GETSCREENW,
+            "GETSCREENH" => OpCode::GETSCREENH,
+            "SETWINDOWTITLE" => OpCode::SETWINDOWTITLE,
+            "LABELADDR" => OpCode::LABELADDR,
             _ => panic!("Unknown opcode: {}", parts[0]),
         };
 
